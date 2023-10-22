@@ -1,5 +1,3 @@
-CREATE DATABASE undolog_db;
-
 CREATE TABLE t (
     id integer NOT NULL,
     A integer NOT NULL,

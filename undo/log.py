@@ -28,7 +28,7 @@ def get_transaction_list_to_undo():
     commited_lst = list()
     tr_undo_lst = list()
     ckpt_flag = 0
-
+    print('log filename ' + settings.LOG_FILENAME)
     with fread_backwards(settings.LOG_FILENAME, encoding="utf-8") as log:
         for line in log:
             op_id, match = op_identify(line)
