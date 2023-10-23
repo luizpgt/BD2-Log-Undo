@@ -32,10 +32,9 @@ def populate_tables(cursor):
 
 def perform_undos(cursor, trn_list):
     for trn in trn_list:
-        tr, id, col, value = str(trn).replace('<', '').replace('>', '').split('|')
         cursor.execute(f'''
-            UPDATE t SET {col} = {value}
-            WHERE id = {id}
+            UPDATE t SET {trn.column} = {trn.old_v}
+            WHERE id = {trn.tuple_id}
         ''')
 
 def check_database(user, password, dbname):
