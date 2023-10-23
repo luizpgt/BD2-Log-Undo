@@ -1,13 +1,14 @@
 import psycopg2
-from core.dbconf import dbconfig
-from core.database import create_tables, populate_tables, perform_undos, check_database
+from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+
+from core.config import dbconfig
+from core.database import create_tables, populate_tables, perform_undos, check_database, print_tables
 from undo.log import get_transaction_list_to_undo
 
 def main():
     conn = None
     try:
         #criar banco
-        print('teste')
         params = dbconfig()
 
         #criar banco se necessário
@@ -15,22 +16,26 @@ def main():
         
         # conectar banco        
         conn = psycopg2.connect(**params)
+        conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT);
+
         cursor = conn.cursor()
 
-        print('teste2')
         # criar e popular tabelas
         create_tables(cursor)
         populate_tables(cursor)
         
-        # undos
-        print('teste3')
+        # performar undos
         perform_undos(cursor, get_transaction_list_to_undo())
+
+        # exibir estado final da tabela
+        print_tables(cursor)
+
+        cursor.close()
     except(Exception) as err:
         print(err)
-
     finally:
         if conn:
-            cursor.close()
             conn.close()
 
-main()
+if __name__ == '__main__':
+  main()
