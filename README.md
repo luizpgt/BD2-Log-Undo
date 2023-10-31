@@ -53,7 +53,55 @@ mv example.env .env
 python main.py
 ```
 
-A saída esperada para esse programa é similar a: 
+Considerando alguns casos de entrada metadata.json possíveis:
+```
+{
+    "table": {
+        "id":[1,2],
+        "A":[24,20],
+        "B":[55,30]
+    }
+}
+```
+
+```
+{
+    "table": {
+        "id":[1,2, 3],
+        "A":[24, 20, 10],
+        "B":[55, 30, 20],
+	"C":["luiz", "paulo", "lenin"]
+    }
+}
+```
+
+```
+{
+    "table": {
+        "id":[1,2, 3],
+        "A":[24, null, 10],
+        "B":[55, 30],
+	"C":["luiz", "paulo", "lenin"]
+    }
+}
+```
+
+E o seguinte LOG para todos os metadata.json:
+```
+<start T1>
+<T1,1, A,20>
+<start T2>
+<commit T1>
+<START CKPT(T2)>
+<T2,2, B,20>
+<commit T2>
+<END CKPT>
+<start T3>
+<start T4>
+<T4,1, B,555>
+```
+
+As saídas esperadas são respectivamente:
 ```
 "Transação T4 realizou UNDO"
 "Transação T3 realizou UNDO"
@@ -70,6 +118,65 @@ A saída esperada para esse programa é similar a:
         "B": [
             555,
             30
+        ]
+    }
+}
+```
+
+```
+"Transação T4 realizou UNDO"
+"Transação T3 realizou UNDO"
+{
+    "t": {
+        "id": [
+            1,
+            2,
+            3
+        ],
+        "A": [
+            24,
+            20,
+            10
+        ],
+        "B": [
+            555,
+            30,
+            20
+        ],
+        "C": [
+            "luiz",
+            "paulo",
+            "lenin"
+        ]
+    }
+}
+
+```
+
+```
+"Transação T4 realizou UNDO"
+"Transação T3 realizou UNDO"
+{
+    "t": {
+        "id": [
+            1,
+            2,
+            3
+        ],
+        "A": [
+            24,
+            null,
+            10
+        ],
+        "B": [
+            555,
+            30,
+            null
+        ],
+        "C": [
+            "luiz",
+            "paulo",
+            "lenin"
         ]
     }
 }
