@@ -1,41 +1,79 @@
 import json
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+
 from core.config import settings
 
-def create_tables(cursor):
-    cursor.execute('DROP TABLE IF EXISTS t')
-    cursor.execute('''                   
-        CREATE TABLE t (
-            id integer NOT NULL,
-            A integer NOT NULL,
-            B integer NOT NULL,
-            CONSTRAINT pk_t PRIMARY KEY (id)
-        )                   
-    ''')
+def is_list_of_int(item_list):
+    for item in item_list:
+        if isinstance(item, int):
+            return True
+    return False
 
-def populate_tables(cursor):
+
+def get_table_metadata():
+
     file = open(str(settings.IN_METADATA_FILE), 'r')
+    data = json.load(file)['table']
 
-    try:        
-        data = json.load(file)['table']
-        tuples = list( zip(data['id'], data['A'], data['B']) )
+    keys = list()
+    key_types = list()
+    values = list()
 
-        for tuple in tuples:
-            tuple = [str(column) for column in tuple]
-            values = ', '.join(tuple)
-            insert_query = 'INSERT INTO t(id, a, b) VALUES (' + values + ');'
-            cursor.execute(insert_query)
+    for key, value in data.items():
+        keys.append(str(key))
+        key_types.append("integer" if is_list_of_int(value) else "varchar(500)")
+        values.append(value)
 
-    finally:
-        file.close()
+    return keys, key_types, values
 
-def perform_undos(cursor, trn_list):
+
+def create_tables(cursor, table_metadata):
+
+    keys = table_metadata.keys
+    key_types = table_metadata.key_types
+    values = table_metadata.values
+
+    sql_create = 'CREATE TABLE t ('
+
+    for i in range(len(keys)):
+        sql_create += f'{keys[i]} {key_types[i]} null,'
+
+    sql_create += f'CONSTRAINT pk_t PRIMARY KEY ({keys[0]}));'
+
+    cursor.execute('DROP TABLE IF EXISTS t')
+    cursor.execute(sql_create)
+
+
+def populate_tables(cursor, table_metadata):
+
+    sql_insert_query = f'insert into t({",".join(table_metadata.keys)}) values '
+        
+    bigger_values_list = (len(max(table_metadata.values, key=len)))
+
+    for i in range(bigger_values_list):
+        sql_insert_query += '('
+        for j in range(len(table_metadata.values)):
+            if len(table_metadata.values[j]) < i + 1 or table_metadata.values[j][i] == None:
+                sql_insert_query += f'null,'
+            else:
+                if table_metadata.key_types[j] == 'integer':
+                    sql_insert_query += f'{table_metadata.values[j][i]},'
+                else:
+                    sql_insert_query += f'\'{table_metadata.values[j][i]}\','
+        sql_insert_query = sql_insert_query[:-1] + '),'
+    sql_insert_query = sql_insert_query[:-1] + ';'
+
+    cursor.execute(sql_insert_query)
+
+
+def perform_undos(cursor, trn_list, table_metadata):
     for trn in trn_list:
         cursor.execute(f'''
             UPDATE t SET {trn.column} = {trn.old_v}
-            WHERE id = {trn.tuple_id}
+            WHERE {table_metadata.keys[0]} = {trn.tuple_id}
         ''')
+
 
 def check_database(user, password, dbname):
     conn = None
@@ -57,18 +95,17 @@ def check_database(user, password, dbname):
       if conn:
         conn.close()
 
-def print_tables(cursor):
-    cursor.execute('SELECT id, A, B FROM t ORDER BY id')
-    data_dic = {
-        "t": {
-            "id": [],
-            "A": [],
-            "B": []
-        }
-    }
+
+def print_tables(cursor, table_metadata):
+    sql_select = f'SELECT {",".join(table_metadata.keys)} FROM t ORDER BY {table_metadata.keys[0]}'
+    cursor.execute(sql_select)
+
+    data_dic = {"t":{}}
+    for key in table_metadata.keys:
+        data_dic['t'][key] = []
+
     for record in cursor:
-        id, A, B = record
-        data_dic['t']['id'].append(id)
-        data_dic['t']['A'].append(A)
-        data_dic['t']['B'].append(B)
+        for i in range(len(table_metadata.keys)):
+            data_dic['t'][table_metadata.keys[i]].append(record[i])
+
     print(json.dumps(data_dic, indent=4))
